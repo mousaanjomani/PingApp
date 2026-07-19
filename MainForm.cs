@@ -12,6 +12,7 @@ public class MainForm : Form
     private readonly CheckBox _alertOnDisconnectCheckBox;
     private readonly ListBox _logListBox;
     private readonly System.Windows.Forms.Timer _pingTimer;
+    private readonly NotifyIcon _trayIcon;
 
     private bool _running;
     private bool? _lastReachable; // null = هنوز نتیجه‌ای نداریم
@@ -98,8 +99,48 @@ public class MainForm : Form
             _alertOnDisconnectCheckBox, _startStopButton, _statusLabel, _logListBox,
         });
 
+        var trayMenu = new ContextMenuStrip { RightToLeft = RightToLeft.Yes };
+        trayMenu.Items.Add("نمایش پنجره", null, (_, _) => RestoreFromTray());
+        trayMenu.Items.Add(new ToolStripSeparator());
+        trayMenu.Items.Add("خروج", null, (_, _) => Close());
+
+        _trayIcon = new NotifyIcon
+        {
+            Text = "PingApp — هشدار اتصال",
+            Icon = SystemIcons.Application,
+            ContextMenuStrip = trayMenu,
+            Visible = true,
+        };
+        _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+
         _pingTimer = new System.Windows.Forms.Timer();
         _pingTimer.Tick += async (_, _) => await CheckConnectionAsync();
+    }
+
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        if (WindowState == FormWindowState.Minimized)
+        {
+            Hide();
+            _trayIcon.ShowBalloonTip(2000, "PingApp",
+                "برنامه در کنار ساعت در حال اجراست. برای بازگشت دوبار کلیک کنید.",
+                ToolTipIcon.Info);
+        }
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        _trayIcon.Visible = false;
+        _trayIcon.Dispose();
+        base.OnFormClosed(e);
+    }
+
+    private void RestoreFromTray()
+    {
+        Show();
+        WindowState = FormWindowState.Normal;
+        Activate();
     }
 
     private void OnStartStopClicked(object? sender, EventArgs e)
@@ -124,6 +165,7 @@ public class MainForm : Form
         _ipTextBox.Enabled = false;
         _intervalUpDown.Enabled = false;
         SetStatus("در حال بررسی...", Color.Khaki);
+        SetTrayText($"در حال پایش {target}");
         Log($"شروع پایش {target}");
 
         _pingTimer.Interval = (int)_intervalUpDown.Value * 1000;
@@ -139,6 +181,7 @@ public class MainForm : Form
         _ipTextBox.Enabled = true;
         _intervalUpDown.Enabled = true;
         SetStatus("متوقف شد", Color.Gainsboro);
+        SetTrayText("PingApp — هشدار اتصال");
         Log("پایش متوقف شد");
     }
 
@@ -174,18 +217,24 @@ public class MainForm : Form
         if (reachable)
         {
             SetStatus($"متصل ✓ ({roundtrip} ms)", Color.LightGreen);
+            SetTrayText($"متصل ✓ {target}");
             if (_lastReachable != true)
             {
                 Log($"ارتباط با {target} برقرار شد ({roundtrip} ms)");
+                _trayIcon.ShowBalloonTip(4000, "اتصال برقرار شد ✓",
+                    $"ارتباط با {target} برقرار شد ({roundtrip} ms)", ToolTipIcon.Info);
                 PlayConnectedAlert();
             }
         }
         else
         {
             SetStatus("قطع ✗", Color.LightCoral);
+            SetTrayText($"قطع ✗ {target}");
             if (_lastReachable == true)
             {
                 Log($"ارتباط با {target} قطع شد");
+                _trayIcon.ShowBalloonTip(4000, "اتصال قطع شد ✗",
+                    $"ارتباط با {target} قطع شد", ToolTipIcon.Warning);
                 if (_alertOnDisconnectCheckBox.Checked)
                     PlayDisconnectedAlert();
             }
@@ -232,6 +281,12 @@ public class MainForm : Form
     {
         _statusLabel.Text = text;
         _statusLabel.BackColor = color;
+    }
+
+    private void SetTrayText(string text)
+    {
+        // متن آیکون کنار ساعت حداکثر ۶۳ کاراکتر می‌پذیرد
+        _trayIcon.Text = text.Length > 63 ? text[..63] : text;
     }
 
     private void Log(string message)

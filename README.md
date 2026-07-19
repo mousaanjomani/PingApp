@@ -10,6 +10,8 @@
 - گزینه اختیاری: هشدار صوتی هنگام قطع ارتباط
 - نمایش وضعیت لحظه‌ای (متصل/قطع) همراه با زمان پاسخ (ms)
 - ثبت رویدادها با زمان دقیق در لیست گزارش
+- مینیمایز شدن به کنار ساعت (System Tray) با منوی راست‌کلیک فارسی
+- نوتیفیکیشن بالونی هنگام برقراری یا قطع ارتباط، حتی وقتی پنجره مخفی است
 
 ## پیش‌نیاز ساخت
 
@@ -25,7 +27,7 @@ dotnet run
 ## ساخت فایل اجرایی مستقل (بدون نیاز به نصب .NET روی سیستم مقصد)
 
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
 فایل `PingApp.exe` در مسیر زیر ساخته می‌شود:
